@@ -142,7 +142,10 @@ module.exports = {
         }
       }
 
-      if (!isAuthroized && all) {
+      if (isAuthroized && !all) {
+        break;
+      }
+      else if (!isAuthroized && all) {
         break;
       }
     }
