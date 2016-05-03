@@ -48,6 +48,14 @@ Authenticate.unauthorized = function(req, res) {
   return res.redirect('/');
 }
 
+/* use as route middleware
+ * e.g.
+ *
+ *    router.get('/protected/stuff',
+ *               authenticate.permissions(Permissions.permission, Permission.anotherPermission),
+ *               authenticate.roles(Role.something, Role.somethingElse),
+ *               (req, res, next) => {...} */
+
 Authenticate.permissions = function() {
   var required = Array.prototype.slice.call(arguments, 0);
 
