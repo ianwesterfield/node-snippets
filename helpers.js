@@ -133,6 +133,14 @@ module.exports = {
   authorized: function(granted, required, all) {
     var isAuthroized = false;
 
+    if (this.isType(granted, new Object())) {
+      granted = [granted];
+    }
+
+    if (this.isType(required, new Object())) {
+      required = [required];
+    }
+
     for (var requiredIdx = 0; requiredIdx < required.length; requiredIdx++) {
       for (var grantedIdx = 0; grantedIdx < granted.length; grantedIdx++) {
         isAuthroized = (granted[grantedIdx].code == required[requiredIdx].code);
