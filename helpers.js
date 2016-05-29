@@ -3,167 +3,188 @@ var moment = require('moment');
 var chalk = require('chalk');
 var util = require('util');
 var fs = require('fs');
+var config = require('../config');
 
-module.exports = {
-  isType: function(value, type) {
-    return Object.prototype.toString.call(value) === Object.prototype.toString.call(type);
-  },
-  hash: function(value, algorithm) {
-    var value = value || (moment().utc().valueOf().toString() + Math.random().toString());
-    var algorithm = algorithm || 'sha512';
-    return crypto.createHash(algorithm).update(config.salt1 + value + config.salt2).digest('hex');
-  },
-  formatDateTime: function(value, outFormat, inFormat) {
-    try {
-      var result = '';
+var helpers = () => {}
 
-      if (inFormat) {
-        result = moment(value, inFormat).format(outFormat);
-      }
-      else if (this.isType(value, new Date()) && outFormat) {
-        result = moment(new Date(value)).format(outFormat);
-      }
-      else if (outFormat) {
-        // TODO: moment(value) is deprecated
-        result = moment(value).format(outFormat);
-      }
-      else {
-        // no formatting possible
-        result = value;
-      }
+helpers.logMessage = (severity, message) => {
 
-      return result.toLowerCase() == "invalid date" ? value : result;
-    }
-    catch (e) {
-      // TODO: this.log.error(e);
-    }
-  },
-  fromJson: function(json, obj) {
-    for (var prop in json) {
-      if (obj.hasOwnProperty(prop) && typeof obj[prop] !== 'function') {
+  //todo: this needs to be a component that can log to multiple locations - db, log, webhook, etc.
+  var datetime = helpers.now();
+  var location = new Error('').stack.split('\n').splice(3, 1)[0];
+  location = location.substring(location.indexOf('/'));
 
-        var value = json[prop];
+  var entry = {
+    datetime: datetime,
+    severity: severity,
+    location: location,
+    message: message
+  }
 
-        if (this.isType(value, new Date())) {
-          value = this.formatDateTime(new Date(value), "YYYY-MM-DD HH:mm:ss");
-        }
+  entry = JSON.stringify(entry) + '\n';
 
-        obj[prop] = value;
-      }
-    }
-  },
-  now: function() {
-    return moment().utc().format("YYYY-MM-DD HH:mm:ss");
-  },
-  initResponses: function(res) {
-    //TODO: this => res.send.success, res.send.unauthorized, res.send.invalid, etc.
-    res.sendSuccess = function(message, data) {
-      res.sendResult(200, message, data);
+  fs.appendFile(__dirname + '/../app.log', entry, function(error) {
+    if (error) {
+      console.log(chalk.red(JSON.stringify(error)));
     }
 
-    res.sendUnauthorized = function(message, errorMessage, errorDetails) {
-      res.sendResult(401, message, {}, errorMessage, errorDetails);
+    if (severity == "ERROR") {
+      console.log(chalk.red.bold('Error logged'));
     }
+  })
+}
 
-    res.sendNotFound = function(message, data, errorMessage, errorDetails) {
-      res.sendResult(404, message, data, errorMessage, errorDetails);
-    }
+helpers.config = config;
 
-    res.sendInvalid = function(message, data, errorMessage, errorDetails) {
-      res.sendResult(422, message, data, errorMessage, errorDetails);
-    }
+helpers.isType = (value, type) => {
+  return Object.prototype.toString.call(value) === Object.prototype.toString.call(type);
+}
 
-    res.sendError = function(message, data, errorMessage, errorDetails) {
-      res.sendResult(500, message, data, errorMessage, errorDetails);
-    }
+helpers.hash = (value, algorithm) => {
+  var value = value || (moment().utc().valueOf().toString() + Math.random().toString());
+  var algorithm = algorithm || 'sha512';
+  return crypto.createHash(algorithm).update(config.hashPrefix + value + config.hashSuffix).digest('hex');
+}
 
-    res.sendResult = function(status, message, data, errorMessage, errorDetails) {
-      data.message = message || data.message || '';
+helpers.formatDateTime = (value, outFormat, inFormat) => {
+  var result = '';
 
-      if (status != 200) {
-        data.error = {
-          message: errorMessage,
-          details: errorDetails
-        };
+  if (!value || !outFormat) {
+    return value;
+  }
+
+  if (inFormat) {
+    result = moment(new Date(value), inFormat).format(outFormat);
+  }
+  else {
+    result = moment(new Date(value)).format(outFormat);
+  }
+
+  return result.toLowerCase() == "invalid date" ? value : result;
+}
+
+helpers.fromJson = (obj, json) => {
+  for (var prop in json) {
+
+    var casedProp = prop.toCamelCase();
+
+    if (obj.hasOwnProperty(casedProp) && typeof obj[prop] !== 'function') {
+
+      var value = json[prop];
+
+      if (this.isType(value, new Date())) {
+        value = this.formatDateTime(new Date(value), "YYYY-MM-DD HH:mm:ss");
       }
 
-      res.status(status);
-      res.send(data);
+      obj[casedProp] = value;
     }
-  },
-  log: function(severity, entry) {
-    //logSeverity: {
-    //   UNKNOWN: "UNKNOWN",
-    //   INFO: "INFO",
-    //   WARN: "WARN",
-    //   ERROR: "ERROR",
-    //   DEBUG: "DEBUG"
-    //},
-
-    //TODO: refactor this => helpers.log.error(message)
-    var logEntry = util.format("[%s] [%s] ", this.formatDateTime(new Date(), "YYYY-MM-DD HH:mm:ss"), severity);
-
-    if (severity == this.logSeverity.ERROR) {
-
-      if (this.isType(entry, new String())) {
-        logEntry += util.format(" Message: %s\n", entry);
-      }
-      else if (this.isType(entry, new Error()) || this.isType(entry, new Object())) {
-        logEntry += util.format(" Message: %s\n", entry.message);
-
-        if (entry.stack) {
-          logEntry += util.format("Stack: %s\n", entry.stack);
-        }
-      }
-    }
-    else {
-      logEntry += util.format(" Message: %s\n", entry);
-    }
-
-    fs.appendFile(__dirname + '/../app.log', logEntry, function(result) {
-      if (result) {
-        console.log(chalk.red(JSON.stringify(result)));
-      }
-
-      if (severity == "ERROR") {
-        console.log(chalk.red.bold('Error logged'));
-      }
-    });
-  },
-  authorized: function(granted, required, all) {
-    var isAuthroized = false;
-
-    if (this.isType(granted, new Object())) {
-      granted = [granted];
-    }
-
-    if (this.isType(required, new Object())) {
-      required = [required];
-    }
-
-    for (var requiredIdx = 0; requiredIdx < required.length; requiredIdx++) {
-      for (var grantedIdx = 0; grantedIdx < granted.length; grantedIdx++) {
-        isAuthroized = (granted[grantedIdx].code == required[requiredIdx].code);
-
-        if (isAuthroized) {
-          break;
-        }
-      }
-
-      if (isAuthroized && !all) {
-        break;
-      }
-      else if (!isAuthroized && all) {
-        break;
-      }
-    }
-
-    return isAuthroized;
-  },
-  hasRole: function(user, roles) {
-    return this.authorized(user.roles, roles, false);
-  },
-  hasPermission: function(user, permissions) {
-    return this.authorized(user.permissions, permissions, true);
   }
 }
+
+helpers.now = () => {
+  return moment().format("YYYY-MM-DD HH:mm:ss");
+}
+
+helpers.responses = (res) => {
+
+  // attach the response types to res.send
+  res.send.success = function(message, data) {
+    result(200, message, data);
+  };
+
+  res.send.unauthorized = function(message, data) {
+    result(401, message, data);
+  };
+
+  res.send.missing = function(message, data) {
+    result(404, message, data);
+  };
+
+  res.send.invalid = function(message, data) {
+    result(422, message, data);
+  };
+
+  res.send.error = function(message, data) {
+    result(500, message, data);
+  }
+
+  function result(status, message, data) {
+    var returnData = {
+      success: true,
+      message: message,
+      data: data
+    }
+
+    if (status != 200) {
+      returnData.success = false;
+    }
+
+    res.status(status);
+    res.send(returnData);
+  }
+}
+
+helpers.log = {
+  info: function(message) {
+    helpers.logMessage("INFO", message);
+  },
+  warn: function(message) {
+    helpers.logMessage("WARNING", message);
+  },
+  error: function(message) {
+    var error = message;
+
+    if (helpers.isType(message, new Error()) || helpers.isType(message, new Object())) {
+      error = message.message || 'unspecified error';
+
+      if (message.stack) {
+        error += ' [stack] ' + message.stack;
+      }
+    }
+
+    helpers.logMessage("ERROR", message);
+  },
+  debug: function(message) {
+    if (helpers.config.env == 'dev') {
+      helpers.logMessage("DEBUG", message);
+    }
+  }
+}
+
+helpers.authorized = (granted, required, all) => {
+  var isAuthroized = false;
+
+  if (this.isType(granted, new Object())) {
+    granted = [granted];
+  }
+
+  if (this.isType(required, new Object())) {
+    required = [required];
+  }
+
+  for (var requiredIdx = 0; requiredIdx < required.length; requiredIdx++) {
+    for (var grantedIdx = 0; grantedIdx < granted.length; grantedIdx++) {
+      isAuthroized = (granted[grantedIdx].code == required[requiredIdx].code);
+
+      if (isAuthroized) {
+        break;
+      }
+    }
+
+    if ((isAuthroized && !all) || (!isAuthroized && all)) {
+      break;
+    }
+  }
+
+  return isAuthroized;
+}
+
+helpers.hasRoles = (user, roles) => {
+  return this.authorized(user.roles, roles, false);
+}
+
+helpers.hasPermissions = (user, permissions) => {
+  return this.authorized(user.permissions, permissions, true);
+}
+
+module.exports = helpers;

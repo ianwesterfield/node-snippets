@@ -14,11 +14,11 @@ Authenticate.isAuthorized = function(type, required, req, res, next) {
 
   switch (type) {
     case 'permissions': {
-      req.authorized = helpers.hasPermission(req.user, required);
+      req.authorized = helpers.hasPermissions(req.user, required);
       break;
     }
     case 'roles': {
-      req.authorized = helpers.hasRole(req.user, required);
+      req.authorized = helpers.hasRoles(req.user, required);
       break;
     }
   }
