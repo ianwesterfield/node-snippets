@@ -72,8 +72,8 @@ helpers.fromJson = (obj, json) => {
 
       var value = json[prop];
 
-      if (this.isType(value, new Date())) {
-        value = this.formatDateTime(new Date(value), "YYYY-MM-DD HH:mm:ss");
+      if (helpers.isType(value, new Date())) {
+        value = helpers.formatDateTime(new Date(value), "YYYY-MM-DD HH:mm:ss");
       }
 
       obj[casedProp] = value;
@@ -154,11 +154,11 @@ helpers.log = {
 helpers.authorized = (granted, required, all) => {
   var isAuthroized = false;
 
-  if (this.isType(granted, new Object())) {
+  if (helpers.isType(granted, new Object())) {
     granted = [granted];
   }
 
-  if (this.isType(required, new Object())) {
+  if (helpers.isType(required, new Object())) {
     required = [required];
   }
 
@@ -180,11 +180,11 @@ helpers.authorized = (granted, required, all) => {
 }
 
 helpers.hasRoles = (user, roles) => {
-  return this.authorized(user.roles, roles, false);
+  return helpers.authorized(user.roles, roles, false);
 }
 
 helpers.hasPermissions = (user, permissions) => {
-  return this.authorized(user.permissions, permissions, true);
+  return helpers.authorized(user.permissions, permissions, true);
 }
 
 module.exports = helpers;
