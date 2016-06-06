@@ -7,46 +7,19 @@ var config = require('../config');
 
 var helpers = () => {}
 
-helpers.logMessage = (severity, message) => {
-
-  //todo: this needs to be a component that can log to multiple locations - db, log, webhook, etc.
-  var datetime = helpers.now();
-  var location = new Error('').stack.split('\n').splice(3, 1)[0];
-  location = location.substring(location.indexOf('/'));
-
-  var entry = {
-    datetime: datetime,
-    severity: severity,
-    location: location,
-    message: message
-  }
-
-  entry = JSON.stringify(entry) + '\n';
-
-  fs.appendFile(__dirname + '/../app.log', entry, function(error) {
-    if (error) {
-      console.log(chalk.red(JSON.stringify(error)));
-    }
-
-    if (severity == "ERROR") {
-      console.log(chalk.red.bold('Error logged'));
-    }
-  })
-}
-
 helpers.config = config;
 
-helpers.isType = (value, type) => {
+helpers.isType = function(value, type) {
   return Object.prototype.toString.call(value) === Object.prototype.toString.call(type);
 }
 
-helpers.hash = (value, algorithm) => {
+helpers.hash = function(value, algorithm) {
   var value = value || (moment().utc().valueOf().toString() + Math.random().toString());
   var algorithm = algorithm || 'sha512';
   return crypto.createHash(algorithm).update(config.hashPrefix + value + config.hashSuffix).digest('hex');
 }
 
-helpers.formatDateTime = (value, outFormat, inFormat) => {
+helpers.formatDateTime = function(value, outFormat, inFormat) {
   var result = '';
 
   if (!value || !outFormat) {
@@ -63,7 +36,7 @@ helpers.formatDateTime = (value, outFormat, inFormat) => {
   return result.toLowerCase() == "invalid date" ? value : result;
 }
 
-helpers.fromJson = (obj, json) => {
+helpers.fromJson = function(obj, json) {
   for (var prop in json) {
 
     var casedProp = prop.toCamelCase();
@@ -81,11 +54,11 @@ helpers.fromJson = (obj, json) => {
   }
 }
 
-helpers.now = () => {
+helpers.now = function() {
   return moment().format("YYYY-MM-DD HH:mm:ss");
 }
 
-helpers.responses = (res) => {
+helpers.responses = funciton(res) {
 
   // attach the response types to res.send
   res.send.success = function(message, data) {
@@ -119,7 +92,7 @@ helpers.responses = (res) => {
       returnData.success = false;
     }
 
-    res.status(status);
+    res.status = status;
     res.send(returnData);
   }
 }
@@ -151,12 +124,35 @@ helpers.log = {
   }
 }
 
-helpers.authorized = (granted, required, all) => {
-  var isAuthroized = false;
+helpers.logMessage = function(severity, message) {
 
-  if (helpers.isType(granted, new Object())) {
-    granted = [granted];
+  //todo: this needs to be a component that can log to multiple locations - db, log, webhook, etc.
+  var datetime = helpers.now();
+  var location = new Error('').stack.split('\n').splice(3, 1)[0];
+  location = location.substring(location.indexOf('/'));
+
+  var entry = {
+    datetime: datetime,
+    severity: severity,
+    location: location,
+    message: message
   }
+
+  entry = JSON.stringify(entry) + '\n';
+
+  fs.appendFile(__dirname + '/../app.log', entry, function(error) {
+    if (error) {
+      console.log(chalk.red(JSON.stringify(error)));
+    }
+
+    if (severity == "ERROR") {
+      console.log(chalk.red.bold('Error logged'));
+    }
+  })
+}
+
+helpers.authorized = function(granted, required, all) {
+  var isAuthroized = false;
 
   if (helpers.isType(required, new Object())) {
     required = [required];
@@ -179,11 +175,11 @@ helpers.authorized = (granted, required, all) => {
   return isAuthroized;
 }
 
-helpers.hasRoles = (user, roles) => {
+helpers.hasRoles = function(user, roles) {
   return helpers.authorized(user.roles, roles, false);
 }
 
-helpers.hasPermissions = (user, permissions) => {
+helpers.hasPermissions = function(user, permissions) {
   return helpers.authorized(user.permissions, permissions, true);
 }
 
