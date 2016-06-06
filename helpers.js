@@ -58,7 +58,7 @@ helpers.now = function() {
   return moment().format("YYYY-MM-DD HH:mm:ss");
 }
 
-helpers.responses = funciton(res) {
+helpers.responses = function(res) {
 
   // attach the response types to res.send
   res.send.success = function(message, data) {
